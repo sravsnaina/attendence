@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Check before saving - {{ payload.filename }}</h1>
+<form method="post" action="{{ url_for('import_confirm', token=token) }}">
+<table>
+<tr><th class="l">Name in file</th><th class="l">Save as employee</th><th>Dates</th><th>Rows</th><th>New</th><th>Changed</th><th>Same</th><th>Protected (your edits)</th><th class="l">Notes</th></tr>
+{% for p in previews %}
+<tr class="{{ 'warn' if p.how=='fuzzy' or p.problems else ('err' if p.how=='none') }}">
+ <td class="l"><b>{{ p.b.name or '(photo - choose employee)' }}</b><br><span class="mute small">{{ p.b.designation }}</span></td>
+ <td class="l"><select name="map_{{ p.i }}">
+   {% for e in emps %}<option value="{{ e.id }}" {{ 'selected' if p.emp and p.emp.id==e.id }}>{{ e.name }}</option>{% endfor %}
+   {% if p.b.name %}<option value="new" {{ 'selected' if not p.emp }}>+ Create new employee "{{ p.b.name }}"</option>{% endif %}
+   <option value="skip" {{ 'selected' if not p.emp and not p.b.name }}>Skip this one</option></select></td>
+ <td class="small">{{ p.range[0] }} &rarr; {{ p.range[1] }}</td>
+ <td>{{ p.b.rows|length }}</td><td>{{ p.counts.new or 0 }}</td><td>{{ p.counts.changed or 0 }}</td><td>{{ p.counts.same or 0 }}</td><td>{{ p.counts.manual or 0 }}</td>
+ <td class="l small">{% if p.how=='fuzzy' %}<b>Similar name - please confirm.</b> {% elif p.how=='none' and p.b.name %}New name. {% endif %}{{ p.problems|join('; ') }}</td>
+</tr>{% endfor %}
+</table>
+<p><label class="inline"><input type="checkbox" name="overwrite_manual"> Also overwrite days I edited manually</label>
+<span class="mute small">(normally your manual edits are kept)</span></p>
+<p class="mute small">Blank cells in the file never erase data that is already saved. A backup of the database is taken automatically before saving.</p>
+<button class="btn ok">Save to database</button> <a class="btn sec" href="{{ url_for('import_page') }}">Cancel</a>
+</form>
+{% endblock %}

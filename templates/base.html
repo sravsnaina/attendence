@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Attendance Manager{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+<header>
+  <b>Attendance Manager</b>
+  <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint=='dashboard' }}">Monthly report</a>
+  <a href="{{ url_for('import_page') }}" class="{{ 'on' if request.endpoint in ('import_page','import_preview') }}">Import PDF / file</a>
+  <a href="{{ url_for('review') }}" class="{{ 'on' if request.endpoint=='review' }}">Review items</a>
+  <a href="{{ url_for('employees') }}" class="{{ 'on' if request.endpoint=='employees' }}">Employees</a>
+  <a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint=='settings' }}">Rules &amp; settings</a>
+</header>
+<main>
+{% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endwith %}
+{% block body %}{% endblock %}
+</main>
+</body></html>

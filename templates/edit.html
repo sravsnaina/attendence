@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="nav">
+  <a class="btn sec" href="{{ url_for('edit', emp_id=emp.id, m=prev) }}">&larr;</a>
+  <h1 style="margin:0">{{ emp.name }} <span class="mute" style="font-weight:400">- {{ month_name[m] }} {{ y }}</span></h1>
+  <a class="btn sec" href="{{ url_for('edit', emp_id=emp.id, m=next) }}">&rarr;</a>
+  <select onchange="location='{{ url_for('edit', emp_id=0, m=mk) }}'.replace('/0','/'+this.value)">
+    {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if e.id==emp.id }}>{{ e.name }}</option>{% endfor %}</select>
+  <a href="{{ url_for('dashboard', m=mk) }}" style="margin-left:auto">&larr; back to monthly report</a>
+</div>
+{% set s = res.summary %}
+<div class="kpi">
+  <div><b>{{ s.present|days }}</b><span>present</span></div><div><b>{{ s.leave|days }}</b><span>permitted leave</span></div>
+  <div><b>{{ s.lop|days }}</b><span>loss of pay</span></div><div><b>{{ '%g'|format(s.perm_used) }} hrs</b><span>permission used</span></div>
+  <div><b>{{ s.ot_min|hhmm }}</b><span>overtime</span></div>
+</div>
+<form method="post">
+<input type="hidden" name="m" value="{{ mk }}">
+<table>
+<tr><th>Date</th><th>Day</th><th>Code</th><th>IN</th><th>OUT</th><th>Permission hrs<br><span class="small mute">(extra, manual)</span></th><th>Remarks</th><th>Result</th><th>Worked</th><th>Perm.</th><th class="l">Notes</th></tr>
+{% for d in res.days %}{% set r = recs.get(d.date, {}) %}{% set i = loop.index0 %}
+{% set lvl = 'err' if d.flags|selectattr(0,'equalto','error')|list else ('warn' if d.flags|selectattr(0,'equalto','warn')|list) %}
+<tr id="d{{ d.date }}" class="{{ lvl }}">
+ <td>{{ d.date[8:] }}/{{ d.date[5:7] }}</td><td>{{ d.weekday }}</td>
+ <td><select name="code_{{ i }}"><option value=""></option>{% for c in ENTRY_CODES %}<option value="{{ c }}" {{ 'selected' if (r.get('code','')|upper)==c }}>{{ c }}</option>{% endfor %}
+   {% if r.get('code') and (r.get('code')|upper) not in ENTRY_CODES %}<option value="{{ r.code }}" selected>{{ r.code }}</option>{% endif %}</select></td>
+ <td><input class="t" name="in_{{ i }}" value="{{ r.get('in_time','') }}" placeholder="hh:mm" pattern="[0-9]{1,2}[:.][0-9]{2}"></td>
+ <td><input class="t" name="out_{{ i }}" value="{{ r.get('out_time','') }}" placeholder="hh:mm" pattern="[0-9]{1,2}[:.][0-9]{2}"></td>
+ <td><input class="n" name="perm_{{ i }}" value="{{ r.get('perm_hours') or '' }}" type="number" step="0.5" min="0"></td>
+ <td><input name="rem_{{ i }}" value="{{ r.get('remarks','') }}" style="width:150px"></td>
+ <td><span class="chip s-{{ d.status }}">{{ d.status if d.status not in ('UNMARKED','PENDING') else ('?' if d.status=='UNMARKED' else '-') }}</span></td>
+ <td>{{ fmt_min(d.worked_min) if d.worked_min else '' }}</td>
+ <td>{{ '%g'|format(d.perm_hours) if d.perm_hours else '' }}</td>
+ <td class="flags">{% for lv, k, msg in d.flags if lv != 'info' %}<div class="{{ lv }}">{{ msg }}</div>{% endfor %}{% if d.note %}<div>{{ d.note }}</div>{% endif %}</td>
+</tr>{% endfor %}
+</table>
+<p style="position:sticky;bottom:0;background:var(--bg);padding:10px 0"><button class="btn ok">Save changes</button>
+<span class="mute small">Codes: P present &middot; A absent (counts as LOP) &middot; PL paid leave &middot; LOP loss of pay &middot; OD on duty &middot; WFH work from home &middot; HPL half day + half paid leave &middot; HLOP half day + half LOP &middot; WO week off &middot; H holiday. Late after {{ st.late_grace_until }} is calculated automatically.</span></p>
+</form>
+{% endblock %}

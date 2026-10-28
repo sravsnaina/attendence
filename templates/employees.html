@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Employees</h1>
+<p class="mute">The name and designation here are what appears in your Excel report. "Names in the PDF" lets the app match the fingerprint sheet automatically (e.g. SRAVANI &rarr; Sarvani Lakshmi M).</p>
+<table>
+<tr><th>Order</th><th class="l">Name (report)</th><th class="l">Designation</th><th class="l">Names in the PDF (comma separated)</th><th>Type</th><th>Active</th><th></th></tr>
+{% for e in emps %}
+<form method="post"><input type="hidden" name="id" value="{{ e.id }}">
+<tr><td><input class="n" name="sort_order" value="{{ e.sort_order }}"></td>
+<td><input class="w" name="name" value="{{ e.name }}"></td>
+<td><input class="w" name="designation" value="{{ e.designation }}"></td>
+<td><input class="w" name="aliases" value="{{ e.aliases|join(', ') }}"></td>
+<td><select name="emp_type"><option value="staff" {{ 'selected' if e.emp_type=='staff' }}>staff</option><option value="intern" {{ 'selected' if e.emp_type=='intern' }}>intern</option></select></td>
+<td><input type="checkbox" name="active" {{ 'checked' if e.active }}></td>
+<td><button class="btn sec">Save</button></td></tr></form>{% endfor %}
+</table>
+<h2>Add employee</h2>
+<form method="post" class="card row"><input type="hidden" name="action" value="add">
+<input name="name" placeholder="Name" required><input name="designation" placeholder="Designation"><input name="aliases" placeholder="Name as in PDF (optional)">
+<select name="emp_type"><option>staff</option><option>intern</option></select><button class="btn">Add</button></form>
+<p class="mute small">Untick "Active" for someone who has left - their saved history stays in the database.</p>
+{% endblock %}

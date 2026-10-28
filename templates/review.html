@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="nav">
+  <a class="btn sec" href="{{ url_for('review', m=prev) }}">&larr;</a>
+  <h1 style="margin:0">Review items - {{ month_name[m] }} {{ y }}</h1>
+  <a class="btn sec" href="{{ url_for('review', m=next) }}">&rarr;</a>
+</div>
+{% if not items %}<div class="card">Nothing to review for this month.</div>{% else %}
+<p class="mute">Red = needs your decision (not counted until fixed). Yellow = please double-check. Click a date to open that day.</p>
+<table>
+<tr><th>Level</th><th class="l">Employee</th><th>Date</th><th class="l">Issue</th><th class="l">What to do</th></tr>
+{% for it in items %}
+<tr class="{{ 'err' if it.level=='error' else 'warn' }}"><td>{{ 'FIX' if it.level=='error' else 'CHECK' }}</td><td class="l">{{ it.emp.name }}</td>
+<td><a href="{{ url_for('edit', emp_id=it.emp.id, m=mk) }}#d{{ it.date }}">{{ it.date[8:] }}/{{ it.date[5:7] }}</a></td>
+<td class="l">{{ it.msg }}</td><td class="l small">{{ it.action }}</td></tr>{% endfor %}
+</table>{% endif %}
+{% endblock %}

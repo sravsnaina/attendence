@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="nav">
+  <a class="btn sec" href="{{ url_for('day_entry', iso=prev) }}">&larr;</a>
+  <h1 style="margin:0">{{ d.strftime('%A, %d %B %Y') }}</h1>
+  <a class="btn sec" href="{{ url_for('day_entry', iso=next) }}">&rarr;</a>
+  <input type="date" value="{{ iso }}" onchange="if(this.value)location='{{ url_for('day_entry', iso='X') }}'.replace('X',this.value)">
+  <a href="{{ url_for('dashboard', m=mk) }}" style="margin-left:auto">&larr; back to monthly report</a>
+</div>
+<p class="mute">Type the IN / OUT from the fingerprint machine for everyone, pick the code, and save. Late arrival after {{ st.late_grace_until }} is worked out automatically.</p>
+<form method="post">
+<table>
+<tr><th class="l">Employee</th><th>Code</th><th>IN</th><th>OUT</th><th>Permission hrs<br><span class="small mute">(extra, manual)</span></th><th>Remarks</th><th>Result</th><th class="l">Notes</th></tr>
+{% for x in rows %}{% set k = x.emp.id %}{% set r = x.rec %}{% set d_ = x.res %}
+{% set lvl = 'err' if d_.flags|selectattr(0,'equalto','error')|list else ('warn' if d_.flags|selectattr(0,'equalto','warn')|list) %}
+<tr class="{{ lvl }}"><td class="l"><a href="{{ url_for('edit', emp_id=k, m=mk) }}#d{{ iso }}">{{ x.emp.name }}</a></td>
+ <td><select name="code_{{ k }}"><option value=""></option>{% for c in ENTRY_CODES %}<option value="{{ c }}" {{ 'selected' if (r.get('code','')|upper)==c }}>{{ c }}</option>{% endfor %}
+   {% if r.get('code') and (r.get('code')|upper) not in ENTRY_CODES %}<option value="{{ r.code }}" selected>{{ r.code }}</option>{% endif %}</select></td>
+ <td><input class="t" name="in_{{ k }}" value="{{ r.get('in_time','') }}" placeholder="hh:mm"></td>
+ <td><input class="t" name="out_{{ k }}" value="{{ r.get('out_time','') }}" placeholder="hh:mm"></td>
+ <td><input class="n" type="number" step="0.5" min="0" name="perm_{{ k }}" value="{{ r.get('perm_hours') or '' }}"></td>
+ <td><input name="rem_{{ k }}" value="{{ r.get('remarks','') }}" style="width:150px"></td>
+ <td><span class="chip s-{{ d_.status }}">{{ {'UNMARKED':'?','PENDING':'-'}.get(d_.status, d_.status) }}</span></td>
+ <td class="flags">{% for lv, kk, msg in d_.flags if lv != 'info' %}<div class="{{ lv }}">{{ msg }}</div>{% endfor %}</td></tr>
+{% endfor %}
+</table>
+<p style="position:sticky;bottom:0;background:var(--bg);padding:10px 0"><button class="btn ok">Save this day</button></p>
+</form>
+{% endblock %}

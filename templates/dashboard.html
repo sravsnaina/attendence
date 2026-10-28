@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="nav">
+  <a class="btn sec" href="{{ url_for('dashboard', m=prev) }}">&larr;</a>
+  <h1 style="margin:0">{{ month_name[m] }} {{ y }}</h1>
+  <a class="btn sec" href="{{ url_for('dashboard', m=next) }}">&rarr;</a>
+  {% if months %}<form method="get" style="margin-left:14px"><select name="m" onchange="this.form.submit()">
+    {% for x in months %}<option value="{{ x }}" {{ 'selected' if x==mk }}>{{ x }}</option>{% endfor %}
+    {% if mk not in months %}<option selected>{{ mk }}</option>{% endif %}</select></form>{% endif %}
+</div>
+
+<div class="kpi">
+  <div><b>{{ results|length }}</b><span>employees</span></div>
+  <div class="{{ 'bad' if totals.errors }}"><b>{{ totals.errors }}</b><span>need your decision</span></div>
+  <div class="{{ 'mid' if totals.warnings }}"><b>{{ totals.warnings }}</b><span>to double-check</span></div>
+  <div><b>{{ totals.pending }}</b><span>pending (today / future) days</span></div>
+</div>
+
+<div class="card row">
+  <a class="btn ok" href="{{ url_for('download_report', m=mk) }}">Download Excel for CEO</a>
+  <form method="post" action="{{ url_for('finalize', m=mk) }}"><button class="btn sec" title="Saves a copy of this month's report and a database backup">Save month snapshot</button></form>
+  <a class="btn sec" href="{{ url_for('review', m=mk) }}">Review {{ totals.errors + totals.warnings }} item(s)</a>
+  {% if totals.errors %}<span class="mute">Fix the red items first - they are not guessed in the totals.</span>{% endif %}
+</div>
+
+<table>
+<tr><th>S.No</th><th class="l">No.Of Employees</th><th class="l">Designation</th><th>No.Of Days</th><th>No.Of Working</th><th>No.Of Weekoff</th><th>Granted Holidays</th><th>No.Of present</th><th>Permitted Leave</th><th>Loss Of Pay</th><th>Payable Days</th><th>Permission hrs (of {{ '%g'|format(st.monthly_permission_hours) }})</th><th>OT</th><th>Status</th><th></th></tr>
+{% for r in results %}{% set s = r.summary %}
+<tr class="{{ 'err' if s.errors else ('warn' if s.warnings) }}">
+ <td>{{ loop.index }}</td><td class="l">{{ r.emp.name }}</td><td class="l">{{ r.emp.designation }}</td>
+ <td>{{ s.days|days }}</td><td>{{ s.working|days }}</td><td>{{ s.weekoff|days }}</td><td>{{ s.holidays|days }}</td>
+ <td><b>{{ s.present|days }}</b></td><td>{{ s.leave|days }}</td><td>{{ s.lop|days }}</td><td><b>{{ s.payable|days }}</b></td>
+ <td>{{ '%g'|format(s.perm_used) }}{% if s.perm_excess %} <span class="mute">(+{{ '%g'|format(s.perm_excess) }} over)</span>{% endif %}</td>
+ <td>{{ s.ot_min|hhmm }}</td>
+ <td class="small">{% if s.errors %}<span style="color:var(--err)">{{ s.errors }} to fix</span>{% elif s.pending %}<span class="mute">{{ s.pending }} pending</span>{% elif s.warnings %}<span style="color:var(--warn)">{{ s.warnings }} to check</span>{% else %}<span style="color:var(--ok)">OK</span>{% endif %}</td>
+ <td><a href="{{ url_for('edit', emp_id=r.emp.id, m=mk) }}">Open days</a></td>
+</tr>{% endfor %}
+</table>
+<p class="mute small">Present = Present + On Duty + Work From Home (half days = 0.5). Present + Permitted leave + Loss of pay = Working days. Payable = Days in month - Loss of pay.</p>
+
+<div class="card row">
+  <b>Enter a day for everyone:</b>
+  <input type="date" id="dayp" value="{{ today_iso }}">
+  <button class="btn sec" type="button" onclick="if(dayp.value)location='{{ url_for('day_entry', iso='X') }}'.replace('X',dayp.value)">Open</button>
+  <span class="mute small">fastest way to add the latest fingerprint-machine times</span>
+</div>
+<div class="card">
+<details><summary>Mark leave / On Duty / Work From Home for a date range</summary>
+<form method="post" action="{{ url_for('quick_leave', m=mk) }}" style="margin-top:10px">
+ <div class="row">
+  <select name="code">{% for c in ENTRY_CODES if c not in ('P','A','WO','H') %}<option value="{{ c }}">{{ c }} - {{ STATUS_LABEL.get(c, c) }}</option>{% endfor %}</select>
+  From <input type="date" name="from" required> To <input type="date" name="to" required>
+  <input name="remarks" placeholder="Remarks (optional)">
+ </div>
+ <p class="small mute" style="margin:8px 0 4px">Employees:</p>
+ {% for r in results %}<label class="inline"><input type="checkbox" name="emp_ids" value="{{ r.emp.id }}"> {{ r.emp.name }}</label>{% endfor %}
+ <p><button class="btn">Apply</button> <span class="mute small">Week-off and holiday days inside the range are left untouched.</span></p>
+</form></details>
+</div>
+
+{% if reports %}<div class="card"><b>Saved reports</b>
+<table style="margin-top:8px"><tr><th>When</th><th>Month</th><th>Type</th><th></th></tr>
+{% for rp in reports %}<tr><td>{{ rp.created_at }}</td><td>{{ rp.month }}</td><td>{{ 'Snapshot' if rp.finalized else 'Download' }}</td><td><a href="{{ url_for('old_report', rid=rp.id) }}">Open file</a></td></tr>{% endfor %}</table></div>{% endif %}
+{% endblock %}

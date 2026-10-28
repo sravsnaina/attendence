@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Rules &amp; settings</h1>
+<form method="post" class="card">
+<div class="grid2">
+ <div><label>Company name (report title)</label><input name="company_name" value="{{ st.company_name }}"></div>
+ <div><label>Shift start</label><input name="shift_start" value="{{ st.shift_start }}"></div>
+ <div><label>Shift end</label><input name="shift_end" value="{{ st.shift_end }}"></div>
+ <div><label>Paid hours per day (overtime starts after this)</label><input name="paid_hours" value="{{ st.paid_hours }}"></div>
+ <div><label>Late arrival counts AFTER this time = 1 hour permission</label><input name="late_grace_until" value="{{ st.late_grace_until }}"></div>
+ <div><label>Permission hours allowed per month</label><input name="monthly_permission_hours" type="number" step="0.5" value="{{ st.monthly_permission_hours }}"></div>
+ <div><label>When the monthly permission is exceeded</label><select name="excess_permission_rule">
+   <option value="half_day_each" {{ 'selected' if st.excess_permission_rule=='half_day_each' }}>0.5 day LOP for each extra late/permission</option>
+   <option value="proportional" {{ 'selected' if st.excess_permission_rule=='proportional' }}>LOP in proportion to the extra hours</option>
+   <option value="none" {{ 'selected' if st.excess_permission_rule=='none' }}>No deduction (just report it)</option></select></div>
+ <div><label>Sheet code "A" (absent) is counted as</label><select name="absent_default">
+   <option value="LOP" {{ 'selected' if st.absent_default=='LOP' }}>LOP - loss of pay (no intimation)</option>
+   <option value="PL" {{ 'selected' if st.absent_default=='PL' }}>PL - paid leave</option></select></div>
+ <div><label>Flag days shorter than (hours)</label><input name="short_hours_flag" type="number" step="0.5" value="{{ st.short_hours_flag }}"></div>
+</div>
+<p><b>Weekly off days</b> (used only when a day has no code):
+{% for n in range(7) %}<label class="inline"><input type="checkbox" name="weekly_off_days" value="{{ n }}" {{ 'checked' if n in st.weekly_off_days }}> {{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][n] }}</label>{% endfor %}</p>
+<p><label class="inline"><input type="checkbox" name="early_exit_as_permission" {{ 'checked' if st.early_exit_as_permission }}> Leaving before shift end also uses permission hours</label></p>
+<label class="mute small">Company holidays (one per line: YYYY-MM-DD, name) - used only for days with no code</label>
+<textarea name="holidays" rows="4" style="width:100%">{{ hol_text }}</textarea>
+<p><button class="btn ok">Save settings</button></p>
+</form>
+
+<div class="card row">
+ <form method="post" action="{{ url_for('backup') }}"><button class="btn sec">Backup database now</button></form>
+ <a class="btn sec" href="{{ url_for('export_all') }}">Export all saved data (CSV)</a>
+ <span class="mute small">Everything is stored in the <b>data</b> folder next to the app: attendance.db, uploads (your original PDFs), reports, backups.</span>
+</div>
+{% if imports %}<h2>Recent imports</h2>
+<table><tr><th>When</th><th class="l">File</th><th>Type</th><th>Rows</th><th>Months</th></tr>
+{% for i in imports %}<tr><td>{{ i.imported_at }}</td><td class="l">{{ i.filename }}</td><td>{{ i.kind }}</td><td>{{ i.rows }}</td><td>{{ i.months }}</td></tr>{% endfor %}</table>{% endif %}
+{% endblock %}

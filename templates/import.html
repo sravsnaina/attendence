@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Import attendance</h1>
+<div class="card">
+<form method="post" enctype="multipart/form-data">
+  <p><b>Choose the file</b> (you will see a preview before anything is saved)</p>
+  <input type="file" name="file" accept=".pdf,.xlsx,.csv,.png,.jpg,.jpeg" required>
+  <button class="btn">Read file</button>
+</form>
+</div>
+<div class="grid2">
+ <div class="card"><b>PDF</b> (fingerprint sheet exported from Google Sheets)<br><span class="mute">Exact - the text in the PDF is read directly. Best option.</span></div>
+ <div class="card"><b>Excel / CSV</b> (manual timesheet)<br><span class="mute">Columns: Employee, Date, Code, IN, OUT, Remarks, Permission.</span><br><a href="{{ url_for('template') }}">Download template</a></div>
+ <div class="card"><b>Photo</b> (beta)<br><span class="mute">Needs Tesseract OCR installed. Photo readings can be wrong, so every row is marked "verify" until you open the employee's days and save it.</span></div>
+</div>
+<p class="mute">You can also type or correct any day directly: <i>Monthly report &rarr; Open days</i>.</p>
+{% endblock %}
