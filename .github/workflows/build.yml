@@ -1,76 +1,177 @@
 
-name: Build Attendance Manager
+name: Build Attendance Manager Desktop Installers
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'app.py'
+      - 'db.py'
+      - 'engine.py'
+      - 'importers.py'
+      - 'report.py'
+      - 'templates/**'
+      - 'static/**'
+      - 'launch_desktop.py'
+      - '.github/workflows/build-desktop.yml'
 
 permissions:
   contents: read
 
 jobs:
-  build-windows:
+  windows-installer:
     runs-on: windows-latest
 
     steps:
-      - name: Get source code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install flask openpyxl pdfplumber pillow pytesseract pyinstaller
+          python -m pip install flask werkzeug openpyxl pdfplumber pillow pytesseract pywebview pyinstaller
 
-      - name: Build application
+      - name: Build desktop application
+        shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --name AttendanceManager --add-data "templates;templates" --add-data "static;static" --collect-all pdfplumber app.py
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name AttendanceManager --add-data "templates;templates" --add-data "static;static" --collect-all webview --collect-all pdfplumber --collect-all openpyxl --hidden-import webview.platforms.edgechromium launch_desktop.py
 
-      - name: Package Windows build
+      - name: Bundle Tesseract OCR
+        shell: pwsh
         run: |
-          Compress-Archive -Path dist/AttendanceManager/* -DestinationPath AttendanceManager-Windows.zip
+          choco install tesseract --yes --no-progress
+          $tesseract = "C:\Program Files\Tesseract-OCR"
+          if (!(Test-Path "$tesseract\tesseract.exe")) {
+            throw "Tesseract was not found at $tesseract"
+          }
+          Copy-Item -Recurse -Force $tesseract "dist\AttendanceManager\tesseract"
 
-      - name: Upload Windows package
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Create installer script
+        shell: pwsh
+        run: |
+          @'
+          #define MyAppName "Attendance Manager"
+          #define MyAppVersion "1.0.0"
+          [Setup]
+          AppId={{9F62D4D5-ED51-4DA9-A8B5-1C53C7D8B2A1}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          DefaultDirName={autopf}\Attendance Manager
+          DefaultGroupName=Attendance Manager
+          OutputDir=installer-output
+          OutputBaseFilename=AttendanceManager-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesInstallIn64BitMode=x64
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+          [Files]
+          Source: "dist\AttendanceManager\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+          [Icons]
+          Name: "{autoprograms}\Attendance Manager"; Filename: "{app}\AttendanceManager.exe"
+          Name: "{autodesktop}\Attendance Manager"; Filename: "{app}\AttendanceManager.exe"; Tasks: desktopicon
+          [Run]
+          Filename: "{app}\AttendanceManager.exe"; Description: "Launch Attendance Manager"; Flags: postinstall nowait skipifsilent
+          '@ | Set-Content -Encoding ASCII installer.iss
+          New-Item -ItemType Directory -Force installer-output | Out-Null
+
+      - name: Compile Windows installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          & $iscc installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: AttendanceManager-Windows
-          path: AttendanceManager-Windows.zip
+          name: AttendanceManager-Windows-Installer
+          path: installer-output/AttendanceManager-Setup.exe
+          if-no-files-found: error
 
-  build-linux:
-    runs-on: ubuntu-latest
+  linux-deb:
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Get source code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flask openpyxl pdfplumber pillow pytesseract pyinstaller
-
-      - name: Build application
-        run: |
-          python -m PyInstaller --noconfirm --clean --onedir --name AttendanceManager --add-data "templates:templates" --add-data "static:static" --collect-all pdfplumber app.py
-
-      - name: Package Linux build
+      - name: Install Linux desktop libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y zip
-          cd dist
-          zip -r ../AttendanceManager-Linux.zip AttendanceManager
+          sudo apt-get install -y python3-dev build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev dpkg-dev zip tesseract-ocr
 
-      - name: Upload Linux package
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install flask werkzeug openpyxl pdfplumber pillow pytesseract "pywebview[gtk]" pyinstaller
+
+      - name: Build desktop application
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --name AttendanceManager --add-data "templates:templates" --add-data "static:static" --collect-all webview --collect-all pdfplumber --collect-all openpyxl launch_desktop.py
+
+      - name: Assemble Debian package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          PKG="$PWD/pkgroot"
+
+          mkdir -p "$PKG/opt/attendance-manager"
+          mkdir -p "$PKG/usr/share/applications"
+          mkdir -p "$PKG/DEBIAN"
+
+          cp -a dist/AttendanceManager/. "$PKG/opt/attendance-manager/"
+
+          cat > "$PKG/usr/share/applications/attendance-manager.desktop" <<'EOF'
+          [Desktop Entry]
+          Name=Attendance Manager
+          Comment=Attendance management application
+          Exec=/opt/attendance-manager/AttendanceManager
+          Terminal=false
+          Type=Application
+          Categories=Office;Utility;
+          EOF
+
+          cat > "$PKG/DEBIAN/control" <<'EOF'
+          Package: attendance-manager
+          Version: 1.0.0
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: libc6, libstdc++6, libgtk-3-0, libwebkit2gtk-4.1-0, tesseract-ocr
+          Maintainer: Attendance Manager
+          Description: Attendance Manager desktop application
+           Desktop wrapper for the existing local Flask application.
+          EOF
+
+          mkdir -p dist-installers
+          dpkg-deb --root-owner-group --build "$PKG" dist-installers/AttendanceManager.deb
+
+          cd dist/AttendanceManager
+          zip -qr ../../dist-installers/AttendanceManager-Linux-folder.zip .
+
+      - name: Upload Linux installers
         uses: actions/upload-artifact@v4
         with:
-          name: AttendanceManager-Linux
-          path: AttendanceManager-Linux.zip
+          name: AttendanceManager-Linux-Installer
+          path: |
+            dist-installers/AttendanceManager.deb
+            dist-installers/AttendanceManager-Linux-folder.zip
+          if-no-files-found: error
