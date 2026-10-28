@@ -1,0 +1,76 @@
+
+name: Build Attendance Manager
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Get source code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask openpyxl pdfplumber pillow pytesseract pyinstaller
+
+      - name: Build application
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --name AttendanceManager --add-data "templates;templates" --add-data "static;static" --collect-all pdfplumber app.py
+
+      - name: Package Windows build
+        run: |
+          Compress-Archive -Path dist/AttendanceManager/* -DestinationPath AttendanceManager-Windows.zip
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AttendanceManager-Windows
+          path: AttendanceManager-Windows.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get source code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask openpyxl pdfplumber pillow pytesseract pyinstaller
+
+      - name: Build application
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --name AttendanceManager --add-data "templates:templates" --add-data "static:static" --collect-all pdfplumber app.py
+
+      - name: Package Linux build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip
+          cd dist
+          zip -r ../AttendanceManager-Linux.zip AttendanceManager
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AttendanceManager-Linux
+          path: AttendanceManager-Linux.zip
